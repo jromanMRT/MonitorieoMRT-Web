@@ -141,7 +141,6 @@ export default function Traceroute() {
         shadow-lg
         transition-all
         duration-50
-
         active:scale-99
 
         cursor-pointer

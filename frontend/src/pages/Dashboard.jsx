@@ -59,8 +59,8 @@ export default function Dashboard({
                         px-4
                         py-2
                         rounded
-                        "
                         active:scale-99
+                        "
                     >
                         Historial
                     </Link>
@@ -73,8 +73,8 @@ export default function Dashboard({
                         px-4
                         py-2
                         rounded
-                        "
                         active:scale-99
+                        "
                     >
                         Traceroute
                     </Link>
