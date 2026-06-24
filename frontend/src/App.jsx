@@ -18,17 +18,29 @@ export default function App() {
   // Tema Claro / Oscuro (guardado en LocalStorage)
   const [isDark, setIsDark] = useState(() => localStorage.getItem("theme") === "dark");
 
-  // Alerta sonora (guardado en LocalStorage)
+  // Alerta sonora (guardado en LocalStorage) — default: desactivado
   const [isSoundEnabled, setIsSoundEnabled] = useState(() => {
     const saved = localStorage.getItem("soundEnabled");
-    return saved === null ? true : saved === "true";
+    return saved === null ? false : saved === "true";
   });
 
-  // Intervalo de consulta (por defecto 10s, se actualiza desde la config)
+  // Notificaciones del navegador (guardado en LocalStorage) — default: desactivado
+  const [isNotificationEnabled, setIsNotificationEnabled] = useState(() => {
+    return localStorage.getItem("notificationsEnabled") === "true";
+  });
+
+  // Intervalo de consulta (por defecto 10s)
   const [intervaloMonitoreo, setIntervaloMonitoreo] = useState(10);
 
   // Referencia para comparar estados de equipos y disparar alertas
   const prevEquipos = useRef(null);
+
+  // Refs que siempre tienen el valor actual — evitan stale closures en setInterval
+  const isSoundRef = useRef(isSoundEnabled);
+  const isNotifRef = useRef(isNotificationEnabled);
+
+  useEffect(() => { isSoundRef.current = isSoundEnabled; }, [isSoundEnabled]);
+  useEffect(() => { isNotifRef.current = isNotificationEnabled; }, [isNotificationEnabled]);
 
   // Sincronizar tema con elemento HTML
   useEffect(() => {
@@ -41,21 +53,52 @@ export default function App() {
     }
   }, [isDark]);
 
-  // Guardar estado del sonido
+  // Persistir preferencia de sonido
   useEffect(() => {
     localStorage.setItem("soundEnabled", isSoundEnabled);
   }, [isSoundEnabled]);
 
-  // Solicitar permisos de notificación de navegador automáticamente
+  // Persistir preferencia de notificaciones
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+    localStorage.setItem("notificationsEnabled", isNotificationEnabled);
+  }, [isNotificationEnabled]);
 
-  // Sonido de alerta usando Web Audio API (genera un pitido doble profesional sin archivos locales)
+  // Activar/desactivar notificaciones — solicita permiso al navegador solo cuando el usuario lo pide
+  const handleToggleNotifications = async (enabled) => {
+    if (!enabled) {
+      setIsNotificationEnabled(false);
+      return;
+    }
+
+    if (!("Notification" in window)) {
+      alert("Tu navegador no soporta notificaciones del escritorio.");
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      alert(
+        "Las notificaciones están bloqueadas en este navegador.\n" +
+        "Para activarlas ve a: Configuración del navegador → Privacidad → Notificaciones → Permitir este sitio."
+      );
+      return;
+    }
+
+    if (Notification.permission === "default") {
+      const resultado = await Notification.requestPermission();
+      if (resultado !== "granted") {
+        // El usuario rechazó el permiso — no activar
+        return;
+      }
+    }
+
+    // Permiso granted
+    setIsNotificationEnabled(true);
+  };
+
+  // Sonido de alerta usando Web Audio API
   const reproducirAlerta = () => {
-    if (!isSoundEnabled) return;
+    // Lee siempre el valor actual desde el ref — nunca stale
+    if (!isSoundRef.current) return;
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const emitirTono = (frecuencia, duracion, retardo) => {
@@ -70,7 +113,6 @@ export default function App() {
         osc.start(audioCtx.currentTime + retardo);
         osc.stop(audioCtx.currentTime + retardo + duracion);
       };
-      // Sonido de alarma de red doble beep
       emitirTono(880, 0.15, 0);
       emitirTono(880, 0.15, 0.2);
     } catch (e) {
@@ -80,6 +122,8 @@ export default function App() {
 
   // Lanzar notificación del navegador
   const dispararNotificacion = (titulo, cuerpo) => {
+    // Lee siempre el valor actual desde el ref — nunca stale
+    if (!isNotifRef.current) return;
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification(titulo, { body: cuerpo, icon: "/favicon.ico" });
     }
@@ -107,21 +151,16 @@ export default function App() {
       setUltimaActualizacion(new Date());
       setErrorConexion(false);
 
-      // Comparar con estados previos para alertas en tiempo real
       if (prevEquipos.current !== null) {
         nuevosEquipos.forEach((eq) => {
           const eqPrevio = prevEquipos.current.find((p) => p.ip === eq.ip);
           if (eqPrevio) {
-            // Caso 1: Estaba online y cae a offline
             if (eqPrevio.online && !eq.online) {
               dispararNotificacion("🚨 Equipo sin conexión", `Sitio: ${eq.sitio}\nEquipo: ${eq.nombre} (${eq.ip})`);
               reproducirAlerta();
-            }
-            // Caso 2: Estaba offline y se recupera
-            else if (!eqPrevio.online && eq.online) {
+            } else if (!eqPrevio.online && eq.online) {
               dispararNotificacion("✅ Equipo recuperado", `Sitio: ${eq.sitio}\nEquipo: ${eq.nombre} (${eq.ip})`);
             }
-            // Caso 3: Entró en estado Flapping (Inestable)
             if (eq.estadoActual === "FLAPPING" && eqPrevio.estadoActual !== "FLAPPING") {
               dispararNotificacion("⚠ Conexión Inestable", `Flapping detectado en ${eq.nombre} (Sitio: ${eq.sitio})`);
               reproducirAlerta();
@@ -130,7 +169,6 @@ export default function App() {
         });
       }
 
-      // Actualizar referencia de estados previos
       prevEquipos.current = nuevosEquipos;
     } catch (err) {
       console.error(err);
@@ -138,16 +176,16 @@ export default function App() {
     }
   };
 
-  // Cargar datos al montar y programar bucle de actualización
+  // Carga inicial
   useEffect(() => {
     cargarConfig();
     cargarMonitoreo();
   }, []);
 
-  // Reactivar bucle cuando cambia el intervalo de monitoreo
+  // Bucle de actualización — se recrea solo cuando cambia el intervalo
   useEffect(() => {
-    const handleInterval = setInterval(cargarMonitoreo, intervaloMonitoreo * 1000);
-    return () => clearInterval(handleInterval);
+    const id = setInterval(cargarMonitoreo, intervaloMonitoreo * 1000);
+    return () => clearInterval(id);
   }, [intervaloMonitoreo]);
 
   return (
@@ -157,6 +195,8 @@ export default function App() {
         setIsDark={setIsDark}
         isSoundEnabled={isSoundEnabled}
         setIsSoundEnabled={setIsSoundEnabled}
+        isNotificationEnabled={isNotificationEnabled}
+        onToggleNotifications={handleToggleNotifications}
       />
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <Routes>

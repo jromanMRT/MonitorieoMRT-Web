@@ -1,1 +1,4 @@
 @import "tailwindcss";
+
+/* Tailwind v4: habilitar modo oscuro por clase en lugar de prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
