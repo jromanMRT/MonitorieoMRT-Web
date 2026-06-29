@@ -748,8 +748,10 @@ app.get("/api/estadisticas", async (req, res) => {
  */
 app.get("/api/traceroute/:ip", (req, res) => {
   const ip = req.params.ip;
+  const esWindows = process.platform === "win32";
+  const comando = esWindows ? `tracert -d ${ip}` : `traceroute -n ${ip}`;
 
-  exec(`tracert -d ${ip}`, { timeout: 30000 }, (error, stdout) => {
+  exec(comando, { timeout: 30000 }, (error, stdout) => {
     if (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -766,14 +768,30 @@ app.get("/api/traceroute/:ip", (req, res) => {
 
       const partes = limpia.split(/\s+/);
 
-      if (partes.length >= 8) {
-        saltos.push({
-          salto: partes[0],
-          intento1: partes[1] + " " + partes[2],
-          intento2: partes[3] + " " + partes[4],
-          intento3: partes[5] + " " + partes[6],
-          ip: partes[7]
-        });
+      if (esWindows) {
+        // Windows: 1    <1 ms    <1 ms    <1 ms  192.168.1.1
+        if (partes.length >= 8) {
+          saltos.push({
+            salto: partes[0],
+            intento1: partes[1] + " " + partes[2],
+            intento2: partes[3] + " " + partes[4],
+            intento3: partes[5] + " " + partes[6],
+            ip: partes[7]
+          });
+        }
+      } else {
+        // Linux: 1  192.168.1.1  0.357 ms  0.282 ms  0.268 ms
+        // Linux * * *: 1  *  *  *
+        if (partes.length >= 2) {
+          const ipSalto = partes[1] === "*" ? "*" : partes[1];
+          saltos.push({
+            salto: partes[0],
+            intento1: partes[2] ? partes[2] + " " + (partes[3] || "") : "* ms",
+            intento2: partes[4] ? partes[4] + " " + (partes[5] || "") : "* ms",
+            intento3: partes[6] ? partes[6] + " " + (partes[7] || "") : "* ms",
+            ip: ipSalto
+          });
+        }
       }
     }
 
