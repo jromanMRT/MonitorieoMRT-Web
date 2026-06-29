@@ -50,7 +50,7 @@ export default function Estadisticas() {
 
   const cargarDatos = async () => {
     try {
-      const r = await axios.get("/api/api/estadisticas");
+      const r = await axios.get("/api/estadisticas");
       setData(r.data);
       setLoading(false);
     } catch (err) {
