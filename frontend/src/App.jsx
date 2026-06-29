@@ -132,7 +132,7 @@ export default function App() {
   // Cargar configuración de intervalo desde backend
   const cargarConfig = async () => {
     try {
-      const r = await axios.get("http://localhost:3001/api/config");
+      const r = await axios.get("/api/config");
       if (r.data) {
         setIntervaloMonitoreo(r.data.intervalo_monitoreo || 10);
       }
@@ -144,7 +144,7 @@ export default function App() {
   // Cargar estado de monitoreo
   const cargarMonitoreo = async () => {
     try {
-      const r = await axios.get("http://localhost:3001/api/monitoreo");
+      const r = await axios.get("/api/monitoreo");
       const { sitios: nuevosSitios, equipos: nuevosEquipos } = r.data;
 
       setSitios(nuevosSitios);

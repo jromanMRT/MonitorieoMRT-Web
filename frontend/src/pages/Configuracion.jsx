@@ -31,7 +31,7 @@ export default function Configuracion({ onConfigChange }) {
   // Cargar configuración general
   const cargarConfig = async () => {
     try {
-      const r = await axios.get("http://localhost:3001/api/config");
+      const r = await axios.get("/api/api/config");
       if (r.data) {
         setConfig({
           intervalo_monitoreo: r.data.intervalo_monitoreo,
@@ -52,7 +52,7 @@ export default function Configuracion({ onConfigChange }) {
   // Cargar lista de equipos
   const cargarEquipos = async () => {
     try {
-      const r = await axios.get("http://localhost:3001/api/equipos-config");
+      const r = await axios.get("/api/api/equipos-config");
       setEquipos(r.data || []);
       setLoadingEquipos(false);
     } catch (err) {
@@ -79,7 +79,7 @@ export default function Configuracion({ onConfigChange }) {
     setConfigSavedSuccess(false);
 
     try {
-      await axios.post("http://localhost:3001/api/config", config);
+      await axios.post("/api/api/config", config);
       setConfigSavedSuccess(true);
       if (onConfigChange) {
         onConfigChange(); // Sincronizar intervalo en el componente principal
@@ -117,12 +117,12 @@ export default function Configuracion({ onConfigChange }) {
     try {
       if (editingId) {
         // Actualizar equipo
-        await axios.put(`http://localhost:3001/api/equipos-config/${editingId}`, { sitio, nombre, ip });
+        await axios.put(`/api/api/equipos-config/${editingId}`, { sitio, nombre, ip });
         setFormSuccess("Equipo actualizado exitosamente.");
         setEditingId(null);
       } else {
         // Crear equipo
-        await axios.post("http://localhost:3001/api/equipos-config", { sitio, nombre, ip });
+        await axios.post("/api/api/equipos-config", { sitio, nombre, ip });
         setFormSuccess("Nuevo equipo agregado y en monitoreo.");
       }
 
@@ -169,7 +169,7 @@ export default function Configuracion({ onConfigChange }) {
       return;
     }
     try {
-      await axios.delete(`http://localhost:3001/api/equipos-config/${id}`);
+      await axios.delete(`/api/api/equipos-config/${id}`);
       setFormSuccess("Equipo eliminado del monitoreo.");
       cargarEquipos();
       if (onConfigChange) onConfigChange();
@@ -182,7 +182,7 @@ export default function Configuracion({ onConfigChange }) {
   // Activar o desactivar equipo (sin eliminarlo)
   const toggleEquipo = async (eq) => {
     try {
-      await axios.patch(`http://localhost:3001/api/equipos-config/${eq.id}/toggle`);
+      await axios.patch(`/api/api/equipos-config/${eq.id}/toggle`);
       setFormSuccess(eq.activo === 1 ? `"${eq.nombre}" pausado. Ya no recibirá pings.` : `"${eq.nombre}" reactivado y en monitoreo.`);
       cargarEquipos();
       if (onConfigChange) onConfigChange();

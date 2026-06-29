@@ -11,7 +11,7 @@ export default function Traceroute() {
 
   const cargarEquipos = async () => {
     try {
-      const r = await axios.get("http://localhost:3001/api/equipos");
+      const r = await axios.get("/api/api/equipos");
       setEquipos(r.data);
       if (r.data.length > 0) {
         setIp(r.data[0].ip);
@@ -29,7 +29,7 @@ export default function Traceroute() {
     setEjecutando(true);
     setSaltos([]);
     try {
-      const r = await axios.get(`http://localhost:3001/api/traceroute/${ip}`);
+      const r = await axios.get(`/api/api/traceroute/${ip}`);
       setSaltos(r.data.saltos);
     } catch {
       alert("Error ejecutando traceroute");

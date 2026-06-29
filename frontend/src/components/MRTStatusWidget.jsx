@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const DEFAULT_API_URL = import.meta.env.VITE_MRT_API_URL || "http://localhost:3001";
+const DEFAULT_API_URL = import.meta.env.VITE_MRT_API_URL || "";
 
 // ─── Hook de datos ────────────────────────────────────────────────────────────
 

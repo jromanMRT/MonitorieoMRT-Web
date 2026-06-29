@@ -11,7 +11,7 @@ export default function DrawerDetalleSitio({ nombreSitio, onClose }) {
   // Cargar detalles de los equipos
   const cargar = async () => {
     try {
-      const r = await axios.get(`http://localhost:3001/api/sitio/${nombreSitio}`);
+      const r = await axios.get(`/api/sitio/${nombreSitio}`);
       setEquipos(r.data);
       setLoading(false);
     } catch (err) {
@@ -49,7 +49,7 @@ export default function DrawerDetalleSitio({ nombreSitio, onClose }) {
     setTracerouteLoading((prev) => ({ ...prev, [ip]: true }));
     setTracerouteResult((prev) => ({ ...prev, [ip]: null }));
     try {
-      const r = await axios.get(`http://localhost:3001/api/traceroute/${ip}`);
+      const r = await axios.get(`/api/traceroute/${ip}`);
       setTracerouteResult((prev) => ({ ...prev, [ip]: r.data.saltos }));
     } catch {
       alert("Error ejecutando traceroute manual");

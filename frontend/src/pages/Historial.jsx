@@ -32,7 +32,7 @@ export default function Historial() {
   // Cargar lista de equipos y sitios únicos para los filtros
   const cargarFiltrosIniciales = async () => {
     try {
-      const r = await axios.get("http://localhost:3001/api/equipos");
+      const r = await axios.get("/api/api/equipos");
       setEquiposList(r.data);
 
       // Extraer sitios únicos
@@ -59,7 +59,7 @@ export default function Historial() {
         sort_dir: sortDir
       };
 
-      const r = await axios.get("http://localhost:3001/api/historial", { params });
+      const r = await axios.get("/api/api/historial", { params });
       setEventos(r.data.datos);
       setTotalPages(r.data.paginas);
       setTotalRecords(r.data.total);
@@ -106,7 +106,7 @@ export default function Historial() {
     setSelectedTraceroute(null);
     setModalOpen(true);
     try {
-      const r = await axios.get(`http://localhost:3001/api/traceroute/evento/${eventoId}`);
+      const r = await axios.get(`/api/api/traceroute/evento/${eventoId}`);
       setSelectedTraceroute(r.data.traceroute || "Traceroute vacío o no registrado.");
     } catch (err) {
       setSelectedTraceroute("No se pudo obtener el traceroute para este evento.");
