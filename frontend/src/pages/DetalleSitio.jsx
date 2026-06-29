@@ -19,7 +19,7 @@ export default function DetalleSitio()
         try
         {
             const r = await axios.get(
-                `/api/api/sitio/${nombre}`
+                `/api/sitio/${nombre}`
             );
 
             setEquipos(r.data);
