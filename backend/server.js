@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { exec } = require("child_process");
+const { execFile } = require("child_process");
 const db = require("./database");
 const monitoring = require("./monitoring");
 
@@ -743,59 +743,108 @@ app.get("/api/estadisticas", async (req, res) => {
   }
 });
 
+function parsearTracerouteOutput(output, esWindows) {
+  const saltos = [];
+  const lineas = output.split(/\r?\n/);
+
+  for (const linea of lineas) {
+    const limpia = linea.trim();
+    if (!limpia) continue;
+
+    const match = limpia.match(/^(\d+)\s+(.*)$/);
+    if (!match) continue;
+
+    const salto = match[1];
+    const tokens = match[2].split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) continue;
+
+    let ip = "*";
+    let intento1 = "* ms";
+    let intento2 = "* ms";
+    let intento3 = "* ms";
+
+    if (esWindows) {
+      if (tokens.length >= 7) {
+        ip = tokens[6];
+        intento1 = `${tokens[0]} ${tokens[1]}`;
+        intento2 = `${tokens[2]} ${tokens[3]}`;
+        intento3 = `${tokens[4]} ${tokens[5]}`;
+      }
+    } else {
+      const primerToken = tokens[0];
+      if (primerToken === "*" || primerToken === "ms") {
+        ip = "*";
+      } else {
+        ip = primerToken;
+      }
+
+      const valores = tokens.slice(1);
+      const formatoTiempo = (index) => {
+        const valor = valores[index];
+        if (!valor) return "* ms";
+        if (valor === "*") return "* ms";
+        const siguiente = valores[index + 1];
+        if (siguiente && /^(ms|msec|msecs)$/i.test(siguiente)) {
+          return `${valor} ${siguiente}`;
+        }
+        return `${valor} ms`;
+      };
+
+      intento1 = formatoTiempo(0);
+      intento2 = formatoTiempo(2);
+      intento3 = formatoTiempo(4);
+    }
+
+    saltos.push({ salto, intento1, intento2, intento3, ip });
+  }
+
+  return saltos;
+}
+
 /**
  * Traceroute manual interactivo
  */
 app.get("/api/traceroute/:ip", (req, res) => {
-  const ip = req.params.ip;
+  const ip = req.params.ip?.trim();
+
+  if (!ip) {
+    return res.status(400).json({ saltos: [], error: "Debes indicar una IP o hostname válido." });
+  }
+
   const esWindows = process.platform === "win32";
-  const comando = esWindows ? `tracert -d ${ip}` : `traceroute -n ${ip}`;
+  const baseArgs = esWindows ? ["-d", ip] : ["-n", "-w", "2", "-q", "2", "-m", "15", ip];
 
-  exec(comando, { timeout: 30000 }, (error, stdout) => {
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
+  const ejecutarComando = (comando, args) => new Promise((resolve) => {
+    execFile(comando, args, { timeout: 20000 }, (error, stdout, stderr) => {
+      resolve({ error, stdout: stdout || "", stderr: stderr || "" });
+    });
+  });
 
-    const lineas = stdout.split("\n");
-    const saltos = [];
+  const procesar = async () => {
+    const resultadoPrincipal = await ejecutarComando(esWindows ? "tracert" : "traceroute", baseArgs);
+    let output = [resultadoPrincipal.stdout, resultadoPrincipal.stderr].filter(Boolean).join("\n").trim();
+    let saltos = parsearTracerouteOutput(output, esWindows);
 
-    for (const linea of lineas) {
-      const limpia = linea.trim();
-
-      if (!/^\d+/.test(limpia)) {
-        continue;
-      }
-
-      const partes = limpia.split(/\s+/);
-
-      if (esWindows) {
-        // Windows: 1    <1 ms    <1 ms    <1 ms  192.168.1.1
-        if (partes.length >= 8) {
-          saltos.push({
-            salto: partes[0],
-            intento1: partes[1] + " " + partes[2],
-            intento2: partes[3] + " " + partes[4],
-            intento3: partes[5] + " " + partes[6],
-            ip: partes[7]
-          });
-        }
-      } else {
-        // Linux: 1  192.168.1.1  0.357 ms  0.282 ms  0.268 ms
-        // Linux * * *: 1  *  *  *
-        if (partes.length >= 2) {
-          const ipSalto = partes[1] === "*" ? "*" : partes[1];
-          saltos.push({
-            salto: partes[0],
-            intento1: partes[2] ? partes[2] + " " + (partes[3] || "") : "* ms",
-            intento2: partes[4] ? partes[4] + " " + (partes[5] || "") : "* ms",
-            intento3: partes[6] ? partes[6] + " " + (partes[7] || "") : "* ms",
-            ip: ipSalto
-          });
-        }
+    if (saltos.length === 0 && !esWindows) {
+      try {
+        const resultadoFallback = await ejecutarComando("tracepath", ["-n", ip]);
+        const outputFallback = [resultadoFallback.stdout, resultadoFallback.stderr].filter(Boolean).join("\n").trim();
+        saltos = parsearTracerouteOutput(outputFallback, false);
+        output = outputFallback || output;
+      } catch (error) {
+        // Ignorar fallback si no está disponible
       }
     }
 
-    res.json({ saltos });
+    const errorMensaje = resultadoPrincipal.error && saltos.length === 0
+      ? (resultadoPrincipal.error.code === "ETIMEDOUT" ? "El traceroute tardó demasiado y fue interrumpido." : resultadoPrincipal.error.message)
+      : null;
+
+    res.json({ saltos, error: errorMensaje, raw: output });
+  };
+
+  procesar().catch((error) => {
+    res.status(500).json({ saltos: [], error: error.message });
   });
 });
 

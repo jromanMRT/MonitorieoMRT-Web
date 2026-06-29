@@ -6,12 +6,13 @@ export default function Traceroute() {
   const [ip, setIp] = useState("");
   const [saltos, setSaltos] = useState([]);
   const [ejecutando, setEjecutando] = useState(false);
+  const [errorMensaje, setErrorMensaje] = useState("");
 
   const ultimoSalto = saltos.length > 0 ? saltos[saltos.length - 1].ip : null;
 
   const cargarEquipos = async () => {
     try {
-      const r = await axios.get("/api/api/equipos");
+      const r = await axios.get("/api/equipos");
       setEquipos(r.data);
       if (r.data.length > 0) {
         setIp(r.data[0].ip);
@@ -26,13 +27,26 @@ export default function Traceroute() {
   }, []);
 
   const ejecutar = async () => {
+    if (!ip?.trim()) {
+      setErrorMensaje("Debes indicar una IP o hostname para ejecutar el traceroute.");
+      setSaltos([]);
+      return;
+    }
+
     setEjecutando(true);
     setSaltos([]);
+    setErrorMensaje("");
+
     try {
-      const r = await axios.get(`/api/api/traceroute/${ip}`);
-      setSaltos(r.data.saltos);
-    } catch {
-      alert("Error ejecutando traceroute");
+      const r = await axios.get(`/api/traceroute/${encodeURIComponent(ip.trim())}`);
+      const resultadoSaltos = r.data?.saltos || [];
+      setSaltos(resultadoSaltos);
+
+      if (resultadoSaltos.length === 0) {
+        setErrorMensaje(r.data?.error || "No se obtuvo información del trazado.");
+      }
+    } catch (error) {
+      setErrorMensaje(error.response?.data?.error || "No se pudo ejecutar el traceroute.");
     } finally {
       setEjecutando(false);
     }
@@ -131,8 +145,14 @@ export default function Traceroute() {
           )}
 
           {!ejecutando && saltos.length === 0 && (
-            <div className="flex-1 flex items-center justify-center text-slate-400 py-12 text-sm">
-              Presiona "Ejecutar Traceroute" para iniciar el trazado de saltos.
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-12 text-sm text-center px-6">
+              {errorMensaje ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
+                  {errorMensaje}
+                </div>
+              ) : (
+                <span>Presiona "Ejecutar Traceroute" para iniciar el trazado de saltos.</span>
+              )}
             </div>
           )}
 
