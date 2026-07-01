@@ -84,7 +84,7 @@ function cargarConfiguracion() {
 function ejecutarTracerouteAutomatico(ip, eventId) {
   console.log(`[Traceroute] Iniciando traceroute automático para ${ip} (Evento ID: ${eventId})...`);
   const esWindows = process.platform === "win32";
-  const comando = esWindows ? `tracert -d ${ip}` : `traceroute -n ${ip}`;
+  const comando = esWindows ? `tracert -d ${ip}` : `traceroute -n -I -w 2 -q 2 -m 15 ${ip}`;
 
   exec(comando, { timeout: 45000 }, (error, stdout, stderr) => {
     let resultado = "";

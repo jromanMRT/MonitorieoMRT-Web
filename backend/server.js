@@ -812,7 +812,7 @@ app.get("/api/traceroute/:ip", (req, res) => {
   }
 
   const esWindows = process.platform === "win32";
-  const baseArgs = esWindows ? ["-d", ip] : ["-n", "-w", "2", "-q", "2", "-m", "15", ip];
+  const baseArgs = esWindows ? ["-d", ip] : ["-n", "-I", "-w", "2", "-q", "2", "-m", "15", ip];
 
   const ejecutarComando = (comando, args) => new Promise((resolve) => {
     execFile(comando, args, { timeout: 20000 }, (error, stdout, stderr) => {
